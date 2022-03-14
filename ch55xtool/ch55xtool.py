@@ -85,10 +85,25 @@ CH55X_IC_REF[0x3f] = {
     'device_flash_size': 64*1024,
     'chip_id': 0x3f,
     'erase_required_pages': True}
+CH55X_IC_REF[0x71] = {
+    'device_name': 'CH571',
+    'device_flash_size': 192*1024,
+    'chip_id': 0x71,
+    'erase_required_pages': True}
+CH55X_IC_REF[0x73] = {
+    'device_name': 'CH573',
+    'device_flash_size': 448*1024,
+    'chip_id': 0x73,
+    'erase_required_pages': True}
 CH55X_IC_REF[0x79] = {
     'device_name': 'CH579',
-    'device_flash_size': 256*1024,
+    'device_flash_size': 250*1024,
     'chip_id': 0x79,
+    'erase_required_pages': True}
+CH55X_IC_REF[0x82] = {
+    'device_name': 'CH582',
+    'device_flash_size': 448*1024,
+    'chip_id': 0x82,
     'erase_required_pages': True}
     
 # =============================================
@@ -450,7 +465,7 @@ def main():
             if ret is None:
                 sys.exit('Failed to verify firmware of CH55x.')
         else:
-            if ret[0] in ['V2.31', 'V2.40', 'V2.60', 'V2.61', 'V2.70']:
+            if ret[0] in ['V2.31', 'V2.40', 'V2.60', 'V2.61', 'V2.70', 'V2.80']:
                 if btver >= 2.6:
                     ret = __write_key_ch55x_v23(dev, SEND_KEY_CMD_V26)
                 else:
