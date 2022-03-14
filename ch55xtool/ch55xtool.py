@@ -174,7 +174,7 @@ def __write_key_ch55x_v23(dev, key_cmd):
         return None
 
 
-def __erase_chip_ch55x_v2(dev, page_count):
+def __erase_chip_ch55x_v2(dev, page_count=None):
     command = None
     if page_count == None:
         command = ERASE_CHIP_CMD_V2
