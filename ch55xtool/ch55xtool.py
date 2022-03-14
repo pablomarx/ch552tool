@@ -49,6 +49,7 @@ SEND_KEY_CMD_V20 = [0xa3, 0x30, 0x00]
 SEND_KEY_CMD_V23 = [0xa3, 0x38, 0x00] + [0x00] * (0x38)
 SEND_KEY_CMD_V26 = [0xa3, 0x1e, 0x00] + [0x00] * 30
 ERASE_CHIP_CMD_V2 = [0xa4, 0x01, 0x00, 0x08]
+ERASE_CHIP_CMD_V2_32BIT = [0xa4, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00]
 WRITE_CMD_V2 = [0xa5, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 VERIFY_CMD_V2 = [0xa6, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 READ_CFG_CMD_V2 = [0xa7, 0x02, 0x00, 0x1f, 0x00]
@@ -149,8 +150,22 @@ def __write_key_ch55x_v23(dev, key_cmd):
         return None
 
 
-def __erase_chip_ch55x_v2(dev):
-    dev.write(EP_OUT_ADDR, ERASE_CHIP_CMD_V2)
+def __erase_chip_ch55x_v2(dev, page_count):
+    command = None
+    if page_count == None:
+        command = ERASE_CHIP_CMD_V2
+    else:
+        if page_count < 256:
+            command = ERASE_CHIP_CMD_V2
+            command[3] = page_count
+        else:
+            command = ERASE_CHIP_CMD_V2_32BIT
+            command[3] = page_count % 256
+            command[4] = (page_count >> 8) % 256
+            command[5] = (page_count >> 16) % 256
+            command[6] = (page_count >> 24) % 256
+    
+    dev.write(EP_OUT_ADDR, command)
     ret = dev.read(EP_IN_ADDR, 6, USB_MAX_TIMEOUT)
     if ret[3] == 0:
         return True
@@ -367,18 +382,17 @@ def main():
         
     dev = ret[0]
 
-    ret = __detect_ch55x_v2(dev)
-    if ret is None:
+    wch_dev = __detect_ch55x_v2(dev)
+    if wch_dev is None:
         print('Unable to detect CH55x.')
         print('Welcome to report this issue with a screen shot from the official CH55x tool.')
         sys.exit(-1)
 
-    print('Found %s.' % ret['device_name'])
-    chip_id = ret['chip_id']
+    print('Found %s.' % wch_dev['device_name'])
+    chip_id = wch_dev['chip_id']
 
     ret = __read_cfg_ch55x_v2(dev)
     chk_sum = ret[1]
-
     print('BTVER: %s.' % ret[0])
 
     try:
@@ -390,6 +404,8 @@ def main():
         payload = list(open(args.file, 'rb').read())
         if args.file.endswith('.hex') or args.file.endswith('.ihx') or payload[0]==58:
             print("WARNING: This looks like a hex file. This tool only supports binary files.")
+        if len(payload) > wch_dev['device_flash_size']: 
+            print("WARNING: The file size %i exceeds the device's device_flash_size %i" % (len(payload), wch_dev['device_flash_size']))
         if ret[0] in ['V2.30']:
             ret = __write_key_ch55x_v20(dev, chk_sum)
             if ret is None:
@@ -416,7 +432,11 @@ def main():
                 if ret is None:
                     sys.exit('Failed to write key to CH55x.')
 
-                ret = __erase_chip_ch55x_v2(dev)
+                page_count = None
+                if 'erase_required_pages' in wch_dev and wch_dev['erase_required_pages']:
+                    page_count = math.ceil(len(payload) / 1024)
+
+                ret = __erase_chip_ch55x_v2(dev, page_count)
                 if ret is None:
                     sys.exit('Failed to erase CH55x.')
 
