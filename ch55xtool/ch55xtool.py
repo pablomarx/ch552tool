@@ -174,7 +174,7 @@ def __write_key_ch55x_v23(dev, key_cmd):
         return None
 
 
-def __erase_chip_ch55x_v2(dev, page_count=None):
+def __erase_chip_ch55x_v2(dev, page_count=None, timeout=None):
     command = None
     if page_count == None:
         command = ERASE_CHIP_CMD_V2
@@ -189,8 +189,11 @@ def __erase_chip_ch55x_v2(dev, page_count=None):
             command[5] = (page_count >> 16) % 256
             command[6] = (page_count >> 24) % 256
     
+    if timeout == None:
+        timeout = USB_MAX_TIMEOUT
+    
     dev.write(EP_OUT_ADDR, command)
-    ret = dev.read(EP_IN_ADDR, 6, USB_MAX_TIMEOUT)
+    ret = dev.read(EP_IN_ADDR, 6, timeout)
     if ret[3] == 0:
         return True
     else:
@@ -475,10 +478,10 @@ def main():
                     sys.exit('Failed to write key to CH55x.')
 
                 page_count = None
-                if 'erase_required_pages' in wch_dev and wch_dev['erase_required_pages']:
+                if wch_dev.get('erase_required_pages', None):
                     page_count = math.ceil(len(payload) / 1024)
 
-                ret = __erase_chip_ch55x_v2(dev, page_count)
+                ret = __erase_chip_ch55x_v2(dev, page_count, wch_dev.get('erase_timeout', None))
                 if ret is None:
                     sys.exit('Failed to erase CH55x.')
 
