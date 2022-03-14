@@ -80,9 +80,18 @@ CH55X_IC_REF[0x59] = {
     'device_flash_size': 61440,
     'device_dataflash_size': 128,
     'chip_id': 0x59}
+CH55X_IC_REF[0x3f] = {
+    'device_name': 'CH32V103',
+    'device_flash_size': 64*1024,
+    'chip_id': 0x3f,
+    'erase_required_pages': True}
+CH55X_IC_REF[0x79] = {
+    'device_name': 'CH579',
+    'device_flash_size': 256*1024,
+    'chip_id': 0x79,
+    'erase_required_pages': True}
+    
 # =============================================
-
-
 def __get_dfu_device(idVendor=DFU_ID_VENDOR, idProduct=DFU_ID_PRODUCT):
     dev = usb.core.find(idVendor=idVendor, idProduct=idProduct)
     if dev is None:
@@ -250,13 +259,29 @@ def __write_flash_ch55x_v23(dev, chk_sum, chip_id, payload):
 
         dev.write(EP_OUT_ADDR, __WRITE_CMD_V2)
         ret = dev.read(EP_IN_ADDR, 6, USB_MAX_TIMEOUT)
-
+        
         curr_addr = curr_addr + pkt_length
         left_len = left_len - pkt_length
 
         if ret[4] != 0x00:
             return None
 
+    if chip_id == 0x3f:
+        # My CH32V103 with BT V2.60 will fail to verify without this empty write
+        # My CH579 with BT V2.61 will fail to verify *with* this empty write
+        # I'm not sure if this is required due to MCU or bootloader version
+        # So for now am guarding it with the MCU chip id
+        __WRITE_CMD_V2 = WRITE_CMD_V2
+        __WRITE_CMD_V2[1] = 5
+        __WRITE_CMD_V2[3] = file_length % 256
+        __WRITE_CMD_V2[4] = (file_length >> 8) % 256
+        __WRITE_CMD_V2[5] = (file_length >> 16) % 256
+        __WRITE_CMD_V2[7] = 0
+        dev.write(EP_OUT_ADDR, __WRITE_CMD_V2)
+        ret = dev.read(EP_IN_ADDR, 6, USB_MAX_TIMEOUT)
+        if ret[4] != 0x00:
+            return None
+    
     return file_length
 
 
